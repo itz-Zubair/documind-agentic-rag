@@ -20,8 +20,8 @@ const sendTokenResponse = (user, statusCode, res) => {
     user.passwordHash = undefined;
 
     res.status(statusCode)
-       .cookie('token', token, cookieOptions)
-       .json({ success: true, user });
+       .cookie('token',cookieOptions)
+       .json({ success: true, user,token });
 };
 
 // @desc    Register user

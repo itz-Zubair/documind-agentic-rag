@@ -4,7 +4,8 @@ const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 require('dotenv').config();
-const authRoutes = require('./routes/autroutes');
+const authRoutes = require('./routes/authroutes');
+const documentRoutes = require('./routes/documentroutes');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
