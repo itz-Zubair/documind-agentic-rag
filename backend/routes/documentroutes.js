@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const { uploadDocument } = require('../controllers/documentcontroller');
 const { protect } = require('../middleware/authmiddleware');
-const { queryDocument } = require('../controllers/querycontroller');
+const { queryDocument,getChatHistory } = require('../controllers/querycontroller');
 
 const router = express.Router();
 
@@ -28,10 +28,8 @@ const upload = multer({
 // 2. Wire the protected endpoint
 // Note: 'pdfFile' is the form data key your React app must target during upload
 router.post('/upload', protect, upload.single('pdfFile'), uploadDocument);
-
-
-// Add this right alongside your upload route
 router.post('/query', protect, queryDocument);
+router.get('/history', protect, getChatHistory);
 // 3. Graceful route-level error handling layer for Multer rejections
 router.use((error, req, res, next) => {
     if (error instanceof multer.MulterError) {

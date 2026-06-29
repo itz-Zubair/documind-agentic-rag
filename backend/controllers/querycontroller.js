@@ -1,69 +1,132 @@
+// backend/controllers/queryController.js
 const Chunk = require('../models/chunk');
+const Message = require('../models/message'); // ◄ New Model
 const { generateEmbeddings } = require('../services/embeddingservice');
-const { GoogleGenAI } = require('@google/generative-ai'); 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+exports.getChatHistory = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+
+        // Fetch the last 50 messages for this specific user, sorted oldest to newest
+        // sorting by 'createdAt: 1' makes it incredibly easy for the frontend to map over and display
+        const chatHistory = await Message.find({ userId: userId })
+            .sort({ createdAt: 1 })
+            .limit(50); 
+
+        res.status(200).json({
+            success: true,
+            count: chatHistory.length,
+            history: chatHistory.map(msg => ({
+                id: msg._id,
+                role: msg.role, // 'user' or 'model'
+                content: msg.content,
+                timestamp: msg.createdAt
+            }))
+        });
+
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching conversation history', 
+            error: error.message 
+        });
+    }
+};
 
 exports.queryDocument = async (req, res) => {
     try {
         const { question } = req.body;
+     const userId = req.user.id || req.user._id; // ◄ Fallback check to ensure it catches both formats// Derived from your authMiddleware protect function// Derived from your authMiddleware protect function
 
         if (!question) {
             return res.status(400).json({ message: 'Question text is required' });
         }
 
-        // 1. Generate the 1024-dimension vector for the question via Cohere
-        // Note: Using 'search_query' input type because this is a retrieval task
+        // ==========================================
+        // FEATURE 1: RATE LIMIT CHECK (3 MESSAGES/DAY)
+        // ==========================================
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const dailyMessageCount = await Message.countDocuments({
+            userId: userId,
+            role: 'user',
+            createdAt: { $gte: twentyFourHoursAgo }
+        });
+
+        if (dailyMessageCount >= 3) {
+            return res.status(429).json({
+                success: false,
+                message: "Daily limit reached. You can only send 3 messages per 24 hours."
+            });
+        }
+
+        // ==========================================
+        // FEATURE 2: CONTEXT WINDOW (CHAT HISTORY)
+        // ==========================================
+        // Fetch the last 6 messages to provide conversational history context
+        const priorMessages = await Message.find({ userId: userId })
+            .sort({ createdAt: -1 })
+            .limit(6);
+        
+        // Reverse them so they read chronologically
+        priorMessages.reverse();
+
+        // Format history into a clean structural text block for the LLM
+        const formattedHistory = priorMessages.map(msg => 
+            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+        ).join('\n');
+
+        // 1. Vector Search for relevant document chunks
         const queryVectorArray = await generateEmbeddings([question], 'search_query');
         const queryVector = queryVectorArray[0];
 
-        // 2. Perform Vector Search inside MongoDB Atlas
         const pipeline = [
             {
                 $vectorSearch: {
-                    index: 'vector_index', // ◄ Matches your existing Atlas index name
+                    index: 'vector_index',
                     path: 'embedding',
                     queryVector: queryVector,
                     numCandidates: 10,
-                    limit: 3 // Pull the top 3 closest matching text blocks
+                    limit: 3
                 }
             },
             {
-                $project: {
-                    text: 1,
-                    pageNumber: 1,
-                    score: { $meta: 'vectorSearchScore' }
-                }
+                $project: { text: 1, pageNumber: 1, score: { $meta: 'vectorSearchScore' } }
             }
         ];
 
         const matchingChunks = await Chunk.aggregate(pipeline);
-
-        if (!matchingChunks || matchingChunks.length === 0) {
-            return res.status(200).json({ 
-                answer: "I couldn't find any relevant context in your files to answer that question." 
-            });
-        }
-
-        // 3. Combine the text from the matching chunks
         const compiledContext = matchingChunks.map(chunk => chunk.text).join('\n\n');
 
-        // 4. Send the context and question to Gemini
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        // 2. Synthesize prompt with both Document Context AND Chat History
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const systemPrompt = `
-You are an expert workspace assistant. Answer the user's question using ONLY the provided document context below. 
-If the context doesn't contain the answer, say "I cannot find that information in the uploaded workspace files."
+You are a brilliant, friendly, and natural workspace assistant. 
+Answer the user's question using the provided document context below, while maintaining the natural flow of the conversation history.
 
-Context:
+Document Context:
 ${compiledContext}
 
-User Question: ${question}
+Recent Conversation History:
+${formattedHistory || "No previous history in this session."}
+
+Current User Question: ${question}
 Answer:`;
 
         const aiResponse = await model.generateContent(systemPrompt);
         const generatedAnswer = aiResponse.response.text();
 
-        // 5. Respond with the answer and references
+        // ==========================================
+        // FEATURE 3: SAVE MESSAGES TO HISTORY
+        // ==========================================
+        await Message.create([
+            { userId: userId, role: 'user', content: question },
+            { userId: userId, role: 'model', content: generatedAnswer }
+        ]);
+
+        // 3. Send response
         res.status(200).json({
             success: true,
             answer: generatedAnswer,

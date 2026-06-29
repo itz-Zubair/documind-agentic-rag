@@ -1,9 +1,9 @@
 // backend/controllers/documentController.js
 const Document = require('../models/Document');
 const Chunk = require('../models/chunk');
-const pdfParseModule = require('pdf-parse'); // ◄ Keep standard import name here
+const pdfParseModule = require('pdf-parse'); 
 const { chunkTextWithPages } = require('../utils/chunker');
-const { generateEmbeddings } = require('../services/embeddingservice'); 
+const { generateEmbeddings } = require('../services/embeddingservice');
 
 exports.uploadDocument = async (req, res) => {
     try {
@@ -11,9 +11,26 @@ exports.uploadDocument = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        // Create metadata document tracker
+        // 🛠️ FIXED: Rate limiting logic is now fully wrapped inside this async handler
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const userId = req.user.id || req.user._id;
+
+        // Count how many files this specific user has uploaded in the last 24 hours
+        const dailyUploadCount = await Document.countDocuments({
+            userId: userId,
+            createdAt: { $gte: twentyFourHoursAgo }
+        });
+
+        if (dailyUploadCount >= 1) {
+            return res.status(429).json({
+                success: false,
+                message: "Upload limit reached. You can only upload 1 PDF file per 24 hours."
+            });
+        }
+
+        // 1. Create metadata document tracker
         const docMeta = await Document.create({
-            userId: req.user.id,
+            userId: userId,
             filename: req.file.filename || `upload_${Date.now()}.pdf`,
             originalName: req.file.originalname,
             status: 'processing'
@@ -21,41 +38,37 @@ exports.uploadDocument = async (req, res) => {
 
         let extractedText = '';
 
-        // 🛠️ SAFELY HANDLE BOTH pdf-parse VERSION 1 AND VERSION 2
+        // 2. Extract plain text content from the file buffer
         if (pdfParseModule.PDFParse) {
-            // Version 2 structure (New Class API)
             const parser = new pdfParseModule.PDFParse({ data: req.file.buffer });
             const result = await parser.getText();
             extractedText = result.text;
-            await parser.destroy(); // Free up memory allocation
+            await parser.destroy(); 
         } else {
-            // Version 1 structure (Classic Function API)
             const parsePDF = pdfParseModule.default || pdfParseModule;
             const parsedData = await parsePDF(req.file.buffer);
             extractedText = parsedData.text;
         }
 
-        // Split text content into pages and process chunks
+        // 3. Process layout chunk divisions
         const pages = extractedText.split(/\f/);
         const processedChunks = chunkTextWithPages(pages);
-
-        // Map text out for embedding creation
         const textStringsToEmbed = processedChunks.map(chunk => chunk.text);
 
-        // Generate the 1024-dimensional vectors via Cohere
+        // 4. Generate vectors via Cohere
         const vectors = await generateEmbeddings(textStringsToEmbed, 'search_document');
 
-        // Pair the chunks with their corresponding vectors
+        // 5. Build documents structure arrays
         const chunksToInsert = processedChunks.map((chunk, index) => ({
             documentId: docMeta._id,
-            userId: req.user.id,
+            userId: userId,
             text: chunk.text,
             pageNumber: chunk.pageNumber,
             chunkIndex: chunk.chunkIndex,
             embedding: vectors[index]
         }));
 
-        // Bulk insert directly into MongoDB Atlas
+        // 6. Bulk write collections to MongoDB Atlas
         await Chunk.insertMany(chunksToInsert);
 
         docMeta.status = 'ready';
