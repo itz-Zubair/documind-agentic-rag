@@ -1,13 +1,12 @@
 // backend/routes/documentRoutes.js
 const express = require('express');
 const multer = require('multer');
-const { uploadDocument } = require('../controllers/documentcontroller');
-const { protect } = require('../middleware/authmiddleware');
-const { queryDocument,getChatHistory } = require('../controllers/querycontroller');
-
 const router = express.Router();
+const { uploadDocument, getDocuments, deleteDocument } = require('../controllers/documentcontroller');
+const { protect } = require('../middleware/authmiddleware');
+const { queryDocument, getChatHistory, clearChatHistory } = require('../controllers/querycontroller');
 
-// 1. Setup in-memory staging to catch files without writing directly to disk
+// 2. Setup in-memory staging to catch files without writing directly to disk
 const storage = multer.memoryStorage();
 
 const upload = multer({
@@ -25,11 +24,20 @@ const upload = multer({
     }
 });
 
-// 2. Wire the protected endpoint
+// ==========================================
+// CORE ROUTE REGISTRY
+// ==========================================
+
 // Note: 'pdfFile' is the form data key your React app must target during upload
 router.post('/upload', protect, upload.single('pdfFile'), uploadDocument);
 router.post('/query', protect, queryDocument);
 router.get('/history', protect, getChatHistory);
+router.delete('/clear-history', protect, clearChatHistory);
+
+// Cleaned paths to avoid double /documents/documents nesting
+router.get('/', protect, getDocuments);          // Maps to GET /api/documents
+router.delete('/:id', protect, deleteDocument);  // Maps to DELETE /api/documents/:id
+
 // 3. Graceful route-level error handling layer for Multer rejections
 router.use((error, req, res, next) => {
     if (error instanceof multer.MulterError) {

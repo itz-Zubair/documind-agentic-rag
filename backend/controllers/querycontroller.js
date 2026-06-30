@@ -137,3 +137,21 @@ Answer:`;
         res.status(500).json({ message: 'Error processing vector query request', error: error.message });
     }
 };
+
+// Append to the bottom of backend/controllers/queryController.js
+
+// 3. Clear all chat history for the logged-in user
+exports.clearChatHistory = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+
+        await Message.deleteMany({ userId: userId });
+
+        res.status(200).json({
+            success: true,
+            message: 'Chat history cleared successfully. Context window reset.'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error clearing chat history', error: error.message });
+    }
+};

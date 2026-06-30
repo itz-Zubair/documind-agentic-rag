@@ -5,6 +5,52 @@ const pdfParseModule = require('pdf-parse');
 const { chunkTextWithPages } = require('../utils/chunker');
 const { generateEmbeddings } = require('../services/embeddingservice');
 
+// Append to the bottom of backend/controllers/documentController.js
+
+// 1. Get all uploaded documents for the logged-in user
+exports.getDocuments = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        
+        const documents = await Document.find({ userId: userId }).sort({ createdAt: -1 });
+        
+        res.status(200).json({
+            success: true,
+            count: documents.length,
+            documents
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving documents', error: error.message });
+    }
+};
+
+// 2. Delete a specific document and its associated vector chunks from Atlas
+exports.deleteDocument = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const documentId = req.params.id;
+
+        // Verify the document exists and belongs to this user
+        const document = await Document.findOne({ _id: documentId, userId: userId });
+        if (!document) {
+            return res.status(404).json({ success: false, message: 'Document not found or unauthorized' });
+        }
+
+        // Wipe the raw vector chunks out of the Chunk collection first
+        await Chunk.deleteMany({ documentId: documentId });
+
+        // Wipe the metadata entry from the Document collection
+        await Document.deleteOne({ _id: documentId });
+
+        res.status(200).json({
+            success: true,
+            message: 'Document and its vector embeddings successfully purged from workspace.'
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting document', error: error.message });
+    }
+};
+
 exports.uploadDocument = async (req, res) => {
     try {
         if (!req.file) {
