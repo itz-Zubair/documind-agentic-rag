@@ -6,7 +6,7 @@ const { uploadDocument, getDocuments, deleteDocument } = require('../controllers
 const { protect } = require('../middleware/authmiddleware');
 const { queryDocument, getChatHistory, clearChatHistory } = require('../controllers/querycontroller');
 
-// 2. Setup in-memory staging to catch files without writing directly to disk
+// FOR STORAGE
 const storage = multer.memoryStorage();
 
 const upload = multer({
