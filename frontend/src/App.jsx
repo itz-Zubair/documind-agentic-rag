@@ -1,12 +1,41 @@
-import React from 'react';
+import React, { useState } from 'react';
+import Home from './pages/Home';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
 
-function App() {
+export default function App() {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [isDark, setIsDark] = useState(true);
+  const [user, setUser] = useState(null);
+
+  const handleNavigate = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleAuthSuccess = (userData) => {
+    setUser(userData);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-      <h1 className="text-4xl font-bold text-blue-400 mb-2">Agentic RAG Frontend</h1>
-      <p className="text-slate-400">Tailwind CSS is officially hooked up and working!</p>
-    </div>
+    <>
+      {currentPage === 'home' && (
+        <Home onNavigate={handleNavigate} isDark={isDark} setIsDark={setIsDark} />
+      )}
+      {currentPage === 'auth' && (
+        <Auth 
+          onNavigate={handleNavigate} 
+          isDark={isDark} 
+          setIsDark={setIsDark} 
+          onAuthSuccess={handleAuthSuccess} 
+        />
+      )}
+      {currentPage === 'dashboard' && (
+        <Dashboard 
+          onNavigate={handleNavigate} 
+          isDark={isDark} 
+          user={user} 
+        />
+      )}
+    </>
   );
 }
-
-export default App;
