@@ -1,4 +1,3 @@
-// backend/controllers/authController.js
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
@@ -12,11 +11,13 @@ const sendTokenResponse = (user, statusCode, res) => {
         expiresIn: '1d' // Token expires in 24 hours
     });
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     const cookieOptions = {
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         httpOnly: true, // Prevents cross-site scripting (XSS) attacks by making token inaccessible via JS
-        secure: process.env.NODE_ENV === 'production', // true in production (HTTPS)
-        sameSite: 'lax'
+        secure: isProduction, // Dynamic configuration: true in production (HTTPS required)
+        sameSite: isProduction ? 'none' : 'lax' // Fixed: 'none' allows cross-domain cookies in production
     };
 
     // Strip password hash from response body for security
@@ -91,9 +92,14 @@ exports.login = async (req, res) => {
 // @desc    Logout user / Clear Cookie
 // @route   POST /api/auth/logout
 exports.logout = async (req, res) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Fixed: Included secure and sameSite configurations to match token assignment properties
     res.cookie('token', 'none', {
         expires: new Date(Date.now() + 10 * 1000), // expires in 10 seconds
-        httpOnly: true
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax'
     });
 
     res.status(200).json({ success: true, message: 'User logged out successfully' });
@@ -103,7 +109,7 @@ exports.logout = async (req, res) => {
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
     try {
-        // req.user is populated by the protect middleware we will build next
+        // req.user is populated by the protect middleware
         const user = await User.findById(req.user.id).select('-passwordHash');
         res.status(200).json({ success: true, user });
     } catch (err) {
