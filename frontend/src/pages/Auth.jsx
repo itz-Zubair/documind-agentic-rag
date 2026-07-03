@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api/axios';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Auth({ onNavigate, isDark , onAuthSuccess }) {
   const [activeTab, setActiveTab] = useState('login');
@@ -15,6 +16,34 @@ export default function Auth({ onNavigate, isDark , onAuthSuccess }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const response = await api.post('/api/auth/google', {
+        idToken: credentialResponse.credential
+      });
+      const data = response.data;
+
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+      if (onAuthSuccess) onAuthSuccess(data.user);
+      if (onNavigate) onNavigate('dashboard');
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Google Sign-in failed. Try again.';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-in failed. Please try again.');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -27,13 +56,13 @@ export default function Auth({ onNavigate, isDark , onAuthSuccess }) {
       return;
     }
 
-    const endpoint = activeTab === 'login' ? 'http://localhost:5000/api/auth/login' : 'http://localhost:5000/api/auth/register';
+    const endpoint = activeTab === 'login' ? '/api/auth/login' : '/api/auth/register';
     const payload = activeTab === 'login'
       ? { email, password }
       : { name: fullName, email, password };
 
     try {
-      const response = await axios.post(endpoint, payload);
+      const response = await api.post(endpoint, payload);
       const data = response.data;
 
       if (activeTab === 'login') {
@@ -310,6 +339,23 @@ export default function Auth({ onNavigate, isDark , onAuthSuccess }) {
                     </>
                   )}
                 </button>
+
+                <div className="relative flex py-3 items-center">
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                  <span className={`flex-shrink mx-4 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>or</span>
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                </div>
+
+                <div className="flex justify-center w-full">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme={isDark ? 'dark' : 'outline'}
+                    size="large"
+                    shape="rectangular"
+                    width="100%"
+                  />
+                </div>
               </form>
             </div>
           </div>

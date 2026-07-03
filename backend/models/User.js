@@ -4,13 +4,15 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String, required: false },
+    googleId: { type: String, unique: true, sparse: true },
+    provider: { type: String, required: true, default: 'local' },
 }, { timestamps: true });
 
 // Pre-save hook to hash password automatically
 userSchema.pre('save', async function (next) {
 
-    if (!this.isModified('passwordHash')) return next();
+    if (!this.passwordHash || !this.isModified('passwordHash')) return next();
     
     try {
         const salt = await bcrypt.genSalt(10);

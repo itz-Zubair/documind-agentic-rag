@@ -1,6 +1,9 @@
 // backend/controllers/authController.js
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Helper function to generate JWT and set it in an httpOnly cookie
 const sendTokenResponse = (user, statusCode, res) => {
@@ -20,8 +23,8 @@ const sendTokenResponse = (user, statusCode, res) => {
     user.passwordHash = undefined;
 
     res.status(statusCode)
-       .cookie('token',cookieOptions)
-       .json({ success: true, user,token });
+       .cookie('token', token, cookieOptions)
+       .json({ success: true, user, token });
 };
 
 // @desc    Register user
@@ -105,5 +108,48 @@ exports.getMe = async (req, res) => {
         res.status(200).json({ success: true, user });
     } catch (err) {
         res.status(500).json({ message: 'Server error fetching user profile' });
+    }
+};
+
+// @desc    Google OAuth Login
+// @route   POST /api/auth/google
+exports.googleLogin = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ message: 'Google ID token is required' });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { sub: googleId, email, name } = payload;
+
+        // Find user by googleId, or by email to link them
+        let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+        if (user) {
+            // Update googleId and provider if they weren't set yet (linked account)
+            if (!user.googleId) {
+                user.googleId = googleId;
+                user.provider = 'google';
+                await user.save();
+            }
+        } else {
+            // Create user
+            user = await User.create({
+                name,
+                email,
+                googleId,
+                provider: 'google'
+            });
+        }
+
+        sendTokenResponse(user, 200, res);
+    } catch (err) {
+        res.status(500).json({ message: 'Google authentication server error', error: err.message });
     }
 };
