@@ -1,9 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function Home({ onNavigate, isDark, setIsDark }) {
 
     const handleStart = () => {
         if (onNavigate) onNavigate('auth');
+    };
+
+    // Interactive demo chat state
+    const [demoMessages, setDemoMessages] = useState([
+        { id: 'init', role: 'bot', text: '👋 Hi there! Try asking me anything about your documents.' }
+    ]);
+    const [demoInput, setDemoInput] = useState('');
+    const [demoTyping, setDemoTyping] = useState(false);
+    const [demoLocked, setDemoLocked] = useState(false); // locks after first reply
+    const chatEndRef = useRef(null);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, [demoMessages, demoTyping]);
+
+    const handleDemoSend = () => {
+        const text = demoInput.trim();
+        if (!text || demoTyping || demoLocked) return;
+
+        const userMsg = { id: `u-${Date.now()}`, role: 'user', text };
+        setDemoMessages(prev => [...prev, userMsg]);
+        setDemoInput('');
+        setDemoTyping(true);
+
+        setTimeout(() => {
+            setDemoTyping(false);
+            setDemoMessages(prev => [
+                ...prev,
+                {
+                    id: `b-${Date.now()}`,
+                    role: 'bot',
+                    text: '🔐 Welcome! Please sign in or register first to start chatting with your documents.',
+                    cta: true
+                }
+            ]);
+            setDemoLocked(true); // lock after one exchange
+        }, 1200);
     };
 
     return (
@@ -87,43 +124,111 @@ export default function Home({ onNavigate, isDark, setIsDark }) {
                     </div>
                 </div>
 
-                {/* Workspace Visual Representation Area */}
+                {/* Interactive Demo Chat */}
                 <div className="lg:col-span-6 relative">
                     <div className={`absolute -inset-1 rounded-2xl opacity-20 blur-xl ${isDark ? 'bg-blue-500' : 'bg-blue-300'}`}></div>
-                    <div className={`relative border rounded-2xl shadow-xl overflow-hidden aspect-[4/3] p-4 flex flex-col justify-between transition-colors ${isDark ? 'border-slate-900 bg-slate-900/90' : 'border-slate-200 bg-white'
-                        }`}>
-                        <div className={`flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-                            <div className="flex space-x-2">
-                                <div className="w-3 h-3 rounded-full bg-red-400/60"></div>
-                                <div className="w-3 h-3 rounded-full bg-yellow-400/60"></div>
-                                <div className="w-3 h-3 rounded-full bg-green-400/60"></div>
+                    <div className={`relative border rounded-2xl shadow-xl overflow-hidden flex flex-col transition-colors ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`} style={{ height: '380px' }}>
+
+                        {/* Title bar */}
+                        <div className={`flex items-center justify-between border-b px-4 py-3 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <div className="flex space-x-1.5">
+                                <div className="w-3 h-3 rounded-full bg-red-400/70"></div>
+                                <div className="w-3 h-3 rounded-full bg-yellow-400/70"></div>
+                                <div className="w-3 h-3 rounded-full bg-green-400/70"></div>
                             </div>
                             <div className={`px-3 py-0.5 rounded-md text-[11px] font-mono ${isDark ? 'bg-slate-950 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
-                                agentic-workspace/rag-ui
+                                agentic-workspace/demo
                             </div>
-                            <div className="w-4"></div>
-                        </div>
-
-                        <div className="flex-1 py-4 space-y-4 font-mono text-xs overflow-hidden">
-                            <div className={`p-3 rounded-xl border max-w-[80%] ${isDark ? 'bg-slate-950/60 border-slate-850 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'
-                                }`}>
-                                📄 Loaded: document_analysis.pdf
-                            </div>
-                            <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl max-w-[80%] ml-auto text-blue-500 text-right">
-                                Analyze data trends in the summary segment.
-                            </div>
-                            <div className={`p-3 rounded-xl border max-w-[85%] ${isDark ? 'bg-slate-950/60 border-slate-850 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'
-                                }`}>
-                                🤖 <span className="text-blue-500 font-bold">Agent:</span> Extracted context vectors confirm sharp system performance jumps inside localized parameters...
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Live Demo</span>
                             </div>
                         </div>
 
-                        <div className={`border-t pt-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-                            <div className={`border rounded-xl p-2.5 flex items-center justify-between text-xs ${isDark ? 'bg-slate-950 border-slate-850 text-slate-600' : 'bg-slate-50 border-slate-150 text-slate-400'
-                                }`}>
-                                <span>Ask about your documents...</span>
-                                <span className="text-blue-500 font-bold">➔</span>
-                            </div>
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                            {demoMessages.map(msg => (
+                                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    {msg.role === 'bot' && (
+                                        <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0 mr-2 shadow-sm mt-0.5">
+                                            A
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed font-sans ${
+                                        msg.role === 'user'
+                                            ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm'
+                                            : isDark
+                                                ? 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-sm'
+                                                : 'bg-slate-50 text-slate-800 border border-slate-100 rounded-tl-sm shadow-sm'
+                                    }`}>
+                                        <p>{msg.text}</p>
+                                        {msg.cta && (
+                                            <button
+                                                onClick={handleStart}
+                                                className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                                            >
+                                                Sign In / Register →
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Typing indicator */}
+                            {demoTyping && (
+                                <div className="flex justify-start">
+                                    <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0 mr-2 shadow-sm mt-0.5">
+                                        A
+                                    </div>
+                                    <div className={`px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-slate-50 border border-slate-100 shadow-sm'}`}>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        {/* Input */}
+                        <div className={`border-t px-3 py-3 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+                            {demoLocked ? (
+                                <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-3 ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base">🔒</span>
+                                        <span className={`text-[12px] font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Demo limit reached</span>
+                                    </div>
+                                    <button
+                                        onClick={handleStart}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap"
+                                    >
+                                        Sign In →
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                                    <input
+                                        type="text"
+                                        value={demoInput}
+                                        onChange={e => setDemoInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleDemoSend()}
+                                        placeholder="Ask about your documents..."
+                                        className={`flex-1 text-[13px] bg-transparent border-none outline-none ${isDark ? 'text-slate-300 placeholder-slate-600' : 'text-slate-700 placeholder-slate-400'}`}
+                                    />
+                                    <button
+                                        onClick={handleDemoSend}
+                                        disabled={!demoInput.trim() || demoTyping}
+                                        className="h-7 w-7 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors shadow-sm"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+                            <p className={`text-center text-[10px] mt-1.5 font-medium ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                {demoLocked ? 'Sign in to unlock full access' : 'Press Enter to send · Demo Mode'}
+                            </p>
                         </div>
                     </div>
                 </div>
