@@ -250,11 +250,6 @@ export default function Auth({ onNavigate, isDark , onAuthSuccess }) {
                     <label className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                       Password
                     </label>
-                    {activeTab === 'login' && (
-                      <button type="button" className="text-xs font-medium text-blue-500 hover:text-blue-400 transition-colors">
-                        Forgot?
-                      </button>
-                    )}
                   </div>
                   <div className="relative">
                     <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
