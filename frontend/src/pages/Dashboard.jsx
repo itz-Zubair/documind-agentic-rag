@@ -9,6 +9,7 @@ export default function Dashboard({ user, onLogout }) {
   const [queryText, setQueryText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -212,13 +213,36 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen w-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden relative">
+      {/* MOBILE BACKDROP OVERLAY */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR CONTAINER */}
-      <div className="w-64 border-r border-[#E2E8F0] bg-white flex flex-col justify-between shrink-0">
+      <div 
+        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-[#E2E8F0] bg-white flex flex-col justify-between shrink-0 transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex flex-col overflow-y-auto flex-1">
-          <div className="p-6 border-b border-[#F1F5F9]">
-            <h1 className="text-lg font-bold text-slate-800 leading-tight">Agentic RAG</h1>
-            <p className="text-[10px] font-bold tracking-[0.15em] text-slate-400 uppercase mt-0.5">ENTERPRISE ASSISTANT</p>
+          <div className="p-6 border-b border-[#F1F5F9] flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-slate-800 leading-tight">Agentic RAG</h1>
+              <p className="text-[10px] font-bold tracking-[0.15em] text-slate-400 uppercase mt-0.5">ENTERPRISE ASSISTANT</p>
+            </div>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-[#F1F5F9] rounded-lg md:hidden border-0 bg-transparent cursor-pointer transition-colors"
+              aria-label="Close sidebar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           <div className="px-4 py-4">
@@ -312,24 +336,37 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* CHAT VIEW WORKSPACE */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <div className="h-14 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-6 shrink-0 z-10">
-          {activeFile ? (
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#EF4444]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <div className="h-14 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-4 sm:px-6 shrink-0 z-10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Hamburger Button for mobile */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-[#F1F5F9] rounded-lg md:hidden border-0 bg-transparent cursor-pointer transition-colors"
+              aria-label="Open sidebar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              <span className="text-sm font-bold text-slate-800">{activeFile.name}</span>
-              <span className="text-xs text-slate-400">|</span>
-              <span className="text-xs font-medium text-slate-500">{activeFile.pageCount || '0'} Pages</span>
-              <span className="text-xs text-slate-400">|</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#EBF2FE] text-[#0A56E4] uppercase tracking-wide">{activeFile.status}</span>
-            </div>
-          ) : (
-            <span className="text-sm font-bold text-slate-500">No active document</span>
-          )}
-          <div className="flex items-center gap-3">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm" />
-            <span className="text-xs font-semibold text-slate-500">Workspace Sync Online</span>
+            </button>
+
+            {activeFile ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#EF4444] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-sm font-bold text-slate-800 truncate">{activeFile.name}</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">|</span>
+                <span className="text-xs font-medium text-slate-500 hidden sm:inline">{activeFile.pageCount || '0'} Pages</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">|</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#EBF2FE] text-[#0A56E4] uppercase tracking-wide shrink-0">{activeFile.status}</span>
+              </div>
+            ) : (
+              <span className="text-sm font-bold text-slate-500 truncate">No active document</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 hidden xs:inline">Workspace Sync Online</span>
           </div>
         </div>
 
@@ -352,14 +389,14 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-6 bg-[#F8FAFC] space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F8FAFC] space-y-6">
           {activeFileId ? (
             <>
               {isLoadingHistory ? (
                 <div className="text-center text-xs font-medium text-slate-400 py-12 animate-pulse">Syncing chat ledger context...</div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex gap-3 sm:gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role !== 'user' && (
                       <div className="h-8 w-8 rounded-full bg-[#0A56E4] flex items-center justify-center text-white shrink-0 shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -367,7 +404,7 @@ export default function Dashboard({ user, onLogout }) {
                         </svg>
                       </div>
                     )}
-                    <div className="flex flex-col max-w-[70%]">
+                    <div className="flex flex-col max-w-[85%] md:max-w-[70%]">
                       <div className={`p-3.5 rounded-2xl text-[13px] leading-relaxed ${msg.role === 'user' ? 'bg-[#0A56E4] text-white rounded-tr-sm shadow-sm' : 'bg-white text-slate-800 border border-[#E2E8F0] rounded-tl-sm shadow-sm'}`}>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -390,9 +427,9 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
                 ))
               )}
-
+ 
               {isThinking && (
-                <div className="flex gap-4 justify-start">
+                <div className="flex gap-3 sm:gap-4 justify-start">
                   <div className="h-8 w-8 rounded-full bg-[#0A56E4] flex items-center justify-center text-white shrink-0 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -422,7 +459,7 @@ export default function Dashboard({ user, onLogout }) {
           )}
           <div ref={chatEndRef} />
         </div>
-
+ 
         <div className="p-4 border-t border-[#E2E8F0] bg-white shrink-0">
           <form onSubmit={(e) => { e.preventDefault(); handleSendQuery(queryText); }} className="flex items-center gap-3 max-w-4xl mx-auto relative bg-[#F1F5F9] rounded-2xl border border-[#E2E8F0] px-4 py-2">
             <input
@@ -437,7 +474,7 @@ export default function Dashboard({ user, onLogout }) {
                   : 'Please wait for file vectorization...'
               }
               disabled={!activeFile || activeFile.status !== 'ready' || isThinking || showLimitWarning}
-              className="flex-1 bg-transparent border-none outline-none text-[13px] placeholder-slate-400 py-1.5 pr-28 text-slate-800 disabled:opacity-50"
+              className="flex-1 bg-transparent border-none outline-none text-[13px] placeholder-slate-400 py-1.5 pr-12 sm:pr-28 text-slate-800 disabled:opacity-50"
             />
             <div className="absolute right-4 flex items-center gap-3">
               <span className="text-[10px] font-bold text-slate-400 hidden sm:inline select-none">Shift + Enter for new line</span>
